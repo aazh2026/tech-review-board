@@ -1,0 +1,1859 @@
+# 技术评审管理平台 PRD
+
+
+
+模式 C：分级授权管理
+
+PRD V1.0
+
+企业级技术治理平台
+
+
+
+本设计以企业级统一治理、产品族自主评审、跨产品族分级决策为核心，进一步细化为可以交付产品经理、架构师和研发团队的产品需求规格。
+
+这次不再停留在功能模块罗列，而是重点明确四件事：
+
+- 治理组织如何分级，以及不同级别拥有什么评审权和决策权。
+- 一项技术议题如何从发起、评审、表决到正式决策、整改关闭。
+- DRB、成员、评审活动、意见、投票、决策之间的数据关系如何设计。
+- 每个页面具体展示什么、允许什么操作、受到什么业务规则约束。
+
+# 一、产品定义与设计边界
+
+## 1.1 产品定位
+
+产品名称：技术评审与决策管理平台（Technical Review & Decision Management Platform）。
+
+产品定位：
+
+面向企业多产品族研发组织，建立统一的技术评审治理机制，实现技术评审组织分级管理、评审议题全生命周期管理、专家资源共享、评审决策授权、评审意见闭环和评审质量度量。
+
+平台的核心价值不是把线下会议搬到线上，而是建立企业技术决策的统一治理体系。
+
+### 1.2 设计目标
+
+| 目标   | 具体要求               | 衡量指标    |
+| ---- | ------------------ | ------- |
+| 统一治理 | 企业统一评审制度、分类标准、规则基线 | 规则覆盖率   |
+| 分级授权 | 企业级、产品族级、专项DRB权责清晰 | 越权决策次数  |
+| 专业评审 | 专家资源统一管理、跨产品族共享    | 专家匹配度   |
+| 过程透明 | 评审全过程在线、可追溯        | 评审记录完整率 |
+| 决策有效 | 投票、决策、风险接受分离       | 决策合规率   |
+| 闭环管理 | 意见整改、验证、风险复发可追踪    | 整改闭环率   |
+| 质量提升 | 关联技术设计质量与生产质量      | 重大风险漏检率 |
+
+### 1.3 产品边界
+
+需要明确平台负责什么、不负责什么。
+
+| 业务事项     | 平台职责            | 是否建设     |
+| -------- | --------------- | -------- |
+| DRB组织与授权 | 组织、层级、职责、权限     | 是        |
+| 专家库      | 专业能力、资格、任期、评审记录 | 是        |
+| 议题管理     | 登记、受理、分级、流转     | 是        |
+| 评审材料     | 版本、归档、评审快照      | 是/集成     |
+| 会议管理     | 会议、议程、成员、纪要     | 是        |
+| 评审投票     | 投票规则、表决、结果      | 是        |
+| 正式决策     | 决策权限、结论、依据、ADR  | 是        |
+| 评审意见     | 收集、分类、整改、验证     | 是        |
+| 研发任务执行   | 代码修改、开发、测试任务执行  | 否，集成现有系统 |
+| 质量指标采集   | 性能、稳定性、安全质量数据   | 以集成为主    |
+| 技术规范管理   | 规范主数据、DFX基线     | 否，引用现有系统 |
+| 技术评价     | 评审质量、专家贡献、组织效能  | 是        |
+
+一个关键原则：平台管理技术治理过程和决策证据，不取代产品研发、项目管理、技术资产管理和质量管理系统。
+
+# 二、核心治理模型：企业级统一治理 + 产品族自治 + 跨域协同
+
+这是本次设计最重要的部分。
+
+## 2.1 三级DRB组织体系
+
+建议建立三级治理结构，并允许专项DRB横向存在。
+
+L1 企业级技术DRB
+
+企业级治理
+
+Enterprise Design Review Board
+
+治理职责
+
+- 企业级技术架构原则、标准与基线
+- 跨产品族重大技术架构决策
+- 企业级公共技术平台和关键技术路线
+- 重大技术风险、架构例外和争议仲裁
+- 产品族DRB授权与运行监督
+
+治理规则下发 / 重大议题升级 / 决策授权
+
+L2 产品族DRB
+
+领域级治理
+
+Product Family Design Review Board
+
+治理职责
+
+- 产品族总体架构与产品架构评审
+- 产品族技术路线和技术选型
+- 产品间接口、数据和技术依赖协调
+- 产品族重大性能、稳定性和安全问题
+- 授权范围内的技术方案审批
+
+评审标准执行 / 超权限议题升级
+
+L3 产品级评审组
+
+产品级治理
+
+Product Design Review Group
+
+治理职责
+
+- 产品技术设计评审
+- 模块、服务、接口、数据设计评审
+- 产品内部技术方案评审
+- 一般技术风险识别和整改
+- 授权范围内的设计确认
+
+横向：专项DRB / 专家委员会
+
+安全、性能、可靠性、数据、AI工程、云原生等专业领域。
+
+横向专家组可服务于不同层级的DRB，不应被视为必须处于L1、L2、L3中的第四个行政层级。
+
+### 2.1.1 为什么专项DRB采用横向结构
+
+如果把安全DRB、性能DRB、AI DRB全部放到三级组织下面，就容易出现两个问题：
+
+- 专业领域与产品组织层级混淆。
+- 同一个安全专家可能需要同时服务多个产品族，产生重复组织和管理。
+
+因此建议将组织模型分成两个维度：
+
+- 纵向：治理层级和决策权限。
+- 横向：专业领域和技术能力。
+
+例如，一个产品族的Agent权限体系设计，可能由产品族DRB组织，邀请企业级安全专家、AI应用工程专家和数据专家参与。
+
+专家可以跨组织任职、跨层级参与，但每次评审的投票权和决策权必须单独授权。
+
+## 2.2 DRB权责矩阵
+
+不能简单地规定L1评审重大议题、L2评审一般议题。必须将技术影响范围、风险等级和授权范围结合起来。
+
+| 事项        | 企业级L1     | 产品族L2   | 产品级L3 |
+| --------- | --------- | ------- | ----- |
+| 企业技术原则与规范 | 制定/批准     | 执行/反馈   | 执行    |
+| 企业级总体架构   | 决策        | 参与      | 参与    |
+| 产品族总体架构   | 监督/重大事项决策 | 决策      | 参与    |
+| 产品架构      | 抽查/重大事项决策 | 监督/决策授权 | 决策授权  |
+| 产品内部技术设计  | 原则监督      | 授权监督    | 决策    |
+| 跨产品族接口与数据 | 决策        | 协同/升级   | 提议    |
+| 产品族内部接口   | 监督/仲裁     | 决策      | 提议/执行 |
+| 公共技术平台选型  | 决策        | 提议/参与   | 提议    |
+| 安全重大风险    | 决策/风险授权   | 评审/升级   | 识别/整改 |
+| 性能与稳定性风险  | 重大事项决策    | 领域内决策   | 产品内决策 |
+| 企业级架构例外   | 审批        | 申请/初审   | 申请    |
+| 产品族架构例外   | 监督/重大事项审批 | 审批      | 申请    |
+
+这里有一个重要区别：
+
+评审权、决策权、执行责任不是同一种权力。
+
+- 评审权：可以对技术方案提出专业判断。
+- 表决权：可以参与正式投票。
+- 决策权：可以在授权范围内签署正式结论。
+- 执行权：负责落实决策及整改要求。
+- 监督权：检查是否遵循治理规则。
+
+一个人可以同时拥有多种权力，也可能只有评审权而没有投票权。
+
+## 2.3 议题分级与路由规则
+
+建议引入统一的议题分级机制。
+
+不要仅依靠发起人手动选择L1、L2、L3，应根据影响范围、技术风险、架构影响和治理规则自动推荐。
+
+### 议题分级维度
+
+| 维度   | L1典型触发条件    | L2典型触发条件  | L3典型触发条件  |
+| ---- | ----------- | --------- | --------- |
+| 影响范围 | 跨产品族/企业公共能力 | 产品族内跨产品   | 单产品内部     |
+| 架构影响 | 企业级架构原则变更   | 产品族总体架构变更 | 产品或模块设计变更 |
+| 技术路线 | 企业级统一技术路线   | 产品族技术路线   | 产品内部技术选型  |
+| 数据影响 | 跨产品族核心数据共享  | 产品族内数据架构  | 模块内部数据设计  |
+| 安全风险 | 企业级重大风险     | 产品族重大风险   | 一般产品安全设计  |
+| 例外审批 | 企业规范例外      | 产品族规范例外   | 产品内部授权例外  |
+
+建议把具体触发条件配置在规则库中，不将上表固化成代码。
+
+### 分级路由示例
+
+\#chatgpt-mermaid-\_r_285\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_285\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_285\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_285\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_285\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_285\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_285\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_285\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_285\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_285\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_285\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_285\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_285\_ p{margin:0;}#chatgpt-mermaid-\_r_285\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .cluster-label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .cluster-label span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_285\_ .label text,#chatgpt-mermaid-\_r_285\_ span{fill:rgb(13, 13, 13);color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .node rect,#chatgpt-mermaid-\_r_285\_ .node circle,#chatgpt-mermaid-\_r_285\_ .node ellipse,#chatgpt-mermaid-\_r_285\_ .node polygon,#chatgpt-mermaid-\_r_285\_ .node path{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .rough-node .label text,#chatgpt-mermaid-\_r_285\_ .node .label text,#chatgpt-mermaid-\_r_285\_ .image-shape .label,#chatgpt-mermaid-\_r_285\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_285\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .rough-node .label,#chatgpt-mermaid-\_r_285\_ .node .label,#chatgpt-mermaid-\_r_285\_ .image-shape .label,#chatgpt-mermaid-\_r_285\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_285\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_285\_ .root .anchor path{fill:rgb(143, 143, 143)!important;stroke-width:0;stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_285\_ .arrowheadPath{fill:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_285\_ .edgePath .path{stroke:rgb(143, 143, 143);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .flowchart-link{stroke:rgb(143, 143, 143);fill:none;}#chatgpt-mermaid-\_r_285\_ .edgeLabel{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_285\_ .edgeLabel p{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_285\_ .edgeLabel rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_285\_ .labelBkg{background-color:rgba(252, 252, 252, 0.5);}#chatgpt-mermaid-\_r_285\_ .cluster rect{fill:rgb(243, 243, 243);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .cluster text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ .cluster span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(243, 243, 243);border:1px solid rgba(0, 0, 0, 0.1);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_285\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_285\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_285\_ .icon-shape,#chatgpt-mermaid-\_r_285\_ .image-shape{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_285\_ .icon-shape p,#chatgpt-mermaid-\_r_285\_ .image-shape p{background-color:rgb(252, 252, 252);padding:2px;}#chatgpt-mermaid-\_r_285\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_285\_ .image-shape .label rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_285\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_285\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_285\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_285\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_285\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_285\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_285\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_285\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_285\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_285\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_285\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_285\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_285\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_285\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_285\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .node rect,#chatgpt-mermaid-\_r_285\_ .node circle,#chatgpt-mermaid-\_r_285\_ .node ellipse,#chatgpt-mermaid-\_r_285\_ .node polygon,#chatgpt-mermaid-\_r_285\_ .node path{fill:rgb(229, 243, 255);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_285\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_285\_ .mermaid-decision .label-container{fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_285\_ .edgePaths .flowchart-link{stroke:rgb(143, 143, 143);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_285\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_285\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}技术评审议题发起自动识别影响范围和风险是否跨产品族或涉及企业级基线?L1 企业级DRB是否涉及产品族整体架构或重大风险?L2 产品族DRBL3 产品级评审组确定评审成员和专业专家正式评审和表决是否超出本级决策权限?升级上级DRB本级授权决策上级决策或授权整改和关闭是否是否是否
+
+需要增加四条机制：
+
+1. 议题发起人可以申请更高级别评审。
+2. DRB秘书可以根据规则调整路由，但必须记录原因。
+3. 上级DRB可以将议题授权下级处理，但不能突破企业级强制性规则。
+4. 评审过程中发现影响范围扩大时，必须支持重新定级和升级。
+
+## 2.4 专家资源统一管理
+
+建议建立企业级统一专家资源池。
+
+企业级专家资源池
+
+架构专家
+
+总体架构、技术路线
+
+安全专家
+
+安全架构、隐私
+
+AI专家
+
+Agent、评测、工程
+
+性能专家
+
+性能、容量
+
+数据专家
+
+数据架构、治理
+
+可靠性专家
+
+稳定性、可运维性
+
+企业专家池 → 产品族专家组 → 议题专家组。专家资源统一管理，但任职、授权和评审任务分别管理。
+
+专家匹配建议采用规则驱动，而不是简单按照职务或专家等级自动分配。
+
+匹配依据：
+
+- 专业领域匹配。
+- 技术方向匹配。
+- 议题所属产品族。
+- DRB授权资格。
+- 历史评审经验。
+- 当前工作负载。
+- 利益冲突状态。
+
+# 三、完整业务对象与核心业务流程
+
+## 3.1 核心业务对象定义
+
+| 对象      | 定义              | 生命周期        |
+| ------- | --------------- | ----------- |
+| DRB组织   | 有治理职责、授权范围的评审组织 | 创建、运行、调整、撤销 |
+| DRB成员任职 | 人员在某个DRB中的组织关系  | 任命、变更、到期    |
+| 专家档案    | 人员的技术专业能力和资格    | 认证、更新、失效    |
+| 评审议题    | 需要进行技术判断或决策的事项  | 发起、受理、评审、关闭 |
+| 评审活动    | 针对议题开展的一次具体评审   | 计划、进行、完成    |
+| 评审任务    | 分配给具体专家的评审职责    | 待接受、进行、完成   |
+| 评审投票    | 成员对特定评审活动的表决    | 开放、提交、封存    |
+| 评审意见    | 专家提出的独立技术问题或建议  | 提出、确认、处理、关闭 |
+| 正式决策    | 授权决策人形成的正式技术结论  | 草拟、批准、发布、修订 |
+| 整改任务    | 对评审意见的整改要求      | 分派、整改、验证、关闭 |
+| 评审评价    | 对方案、过程、专家或组织的评价 | 待评价、提交、归档   |
+
+## 3.2 议题全生命周期
+
+建议区分议题状态和评审活动状态。
+
+议题状态：
+
+```
+草稿
+  ↓
+待受理
+  ↓
+待准备
+  ↓
+评审中
+  ↓
+待决策
+  ├── 已通过
+  ├── 有条件通过 → 整改中
+  ├── 不通过 → 待重新评审
+  ├── 暂缓 → 待补充材料
+  └── 升级评审 → 上级DRB评审
+          ↓
+       整改中
+          ↓
+       待验证
+          ↓
+       已关闭
+```
+
+其中，`已通过`并不一定意味着议题已关闭。如果存在需要完成的强制性整改条件，必须经过验证才能关闭。
+
+评审活动状态：
+
+```
+待创建
+  ↓
+准备中
+  ↓
+待会前预审
+  ↓
+评审进行中
+  ↓
+待表决
+  ↓
+表决完成
+  ↓
+决策完成
+  ↓
+已归档
+```
+
+每个议题可以有多个评审活动，每个评审活动有独立的成员、材料快照、投票、意见和结论。
+
+## 3.3 典型业务场景
+
+场景一：产品内部技术设计评审
+
+- 产品架构师提交模块技术设计。
+- 系统路由至产品级L3。
+- 产品DRB选择成员。
+- 专家完成材料预审和会议评审。
+- 产生意见、投票和正式决策。
+- 整改完成后关闭。
+
+场景二：产品族总体架构评审
+
+- 产品族架构师提交总体架构方案。
+- 系统路由至L2。
+- L2组织评审，邀请安全、数据、性能等专家。
+- 评审后形成产品族级技术决策。
+- 涉及企业级公共技术基线的部分升级至L1。
+
+场景三：跨产品族技术架构决策
+
+- 两个产品族需要共享统一Agent身份和授权体系。
+- 发起跨产品族议题。
+- 系统识别影响范围，路由至L1。
+- L1组织相关产品族架构师和安全、AI专家参加。
+- 形成企业级决策。
+- 各产品族建立落地子议题或整改任务。
+- L1跟踪整体决策落地情况。
+
+场景四：产品族内重大安全问题
+
+- L3发现重大安全风险。
+- 立即记录问题并触发升级。
+- L2组织安全专项评审。
+- 如果触及企业级安全红线，必须升级L1或指定的企业安全授权决策人。
+- 未经授权不得通过普通多数投票豁免。
+
+# 四、完整功能需求规格（FR）
+
+功能优先级定义：
+
+- P0：首期必须交付。
+- P1：第二阶段增强。
+- P2：后续智能化建设。
+
+## 4.1 功能模块总览
+
+| 一级模块  | 二级功能                  | 优先级   |
+| ----- | --------------------- | ----- |
+| 评审工作台 | 个人待办、组织待办、消息提醒、任务统计   | P0    |
+| 议题管理  | 议题登记、受理、分类、分级、路由、状态跟踪 | P0    |
+| 议题管理  | 议题关联、跨级升级、议题拆分、合并     | P1    |
+| DRB管理 | 组织创建、层级配置、治理范围、章程     | P0    |
+| DRB管理 | 授权规则、组织任期、成员调整、组织评价   | P0/P1 |
+| 专家管理  | 专家档案、专业标签、任职资格、专家推荐   | P0/P1 |
+| 评审管理  | 会议、议程、材料、专家邀请、会前预审    | P0    |
+| 评审管理  | 会议记录、讨论、意见收集、会议纪要     | P0    |
+| 投票管理  | 投票规则、投票发起、统计、表决结果     | P0    |
+| 决策管理  | 决策审批、决策发布、决策版本、ADR    | P0    |
+| 意见管理  | 意见提出、确认、分级、分派、申诉      | P0    |
+| 整改管理  | 整改任务、整改证据、验证、关闭       | P0    |
+| 评价管理  | 方案评价、过程评价、专家评价        | P1    |
+| 评价管理  | DRB组织评价、质量效果分析        | P1    |
+| 统计分析  | 议题分析、风险分析、效率分析、质量分析   | P1    |
+| 智能辅助  | 材料预审、风险识别、意见辅助生成      | P2    |
+
+## 4.2 FR-01 评审议题管理
+
+P0
+
+需求目标： 建立统一的技术评审议题入口，实现议题从发起到关闭的全生命周期管理。
+
+| 功能编号     | 功能名称 | 详细需求                 | 验收要求        |
+| -------- | ---- | -------------------- | ----------- |
+| FR-01-01 | 新建议题 | 支持新建、保存草稿            | 可保存未完整填写的议题 |
+| FR-01-02 | 议题分类 | 支持评审类型、专业领域、风险等级     | 可按分类查询      |
+| FR-01-03 | 组织归属 | 关联产品族、产品、子产品、模块      | 支持架构层级关联    |
+| FR-01-04 | 评审诉求 | 方案确认、风险审查、技术决策、例外审批  | 必须选择        |
+| FR-01-05 | 影响范围 | 单模块、单产品、产品族、跨产品族、企业级 | 支持多选及规则判断   |
+| FR-01-06 | 风险分级 | 根据规则计算建议级别           | 展示分级依据      |
+| FR-01-07 | 评审路由 | 自动推荐DRB，支持授权人员调整     | 路由有记录       |
+| FR-01-08 | 议题受理 | 秘书检查材料和信息完整性         | 支持退回补充      |
+| FR-01-09 | 议题关联 | 关联其他议题、项目、需求、风险      | 可查看关联关系     |
+| FR-01-10 | 多轮评审 | 同一议题创建多轮评审           | 历史评审完整保留    |
+| FR-01-11 | 议题升级 | 申请上级DRB评审            | 保留原组织和升级理由  |
+| FR-01-12 | 议题关闭 | 根据关闭条件检查             | 不满足条件不能关闭   |
+
+### 议题表单字段
+
+建议分为六个区域：
+
+| 区域    | 字段              | 必填    |
+| ----- | --------------- | ----- |
+| 基础信息  | 议题名称、类型、发起人、负责人 | 是     |
+| 组织归属  | 产品族、产品、子产品、模块   | 按议题类型 |
+| 技术背景  | 背景、现状、问题、建设目标   | 是     |
+| 评审诉求  | 评审目的、希望得到的结论    | 是     |
+| 影响与风险 | 影响范围、技术领域、风险等级  | 是     |
+| 计划与材料 | 期望时间、设计文档、验证材料  | 按准入规则 |
+
+建议系统自动生成议题编号：
+
+`TR-产品族编码-年份-流水号`
+
+例如：`TR-CRM-2026-0001`。
+
+### 议题分类字典
+
+建议首期内置以下评审类型：
+
+1. 总体架构评审。
+2. 产品架构评审。
+3. 技术方案评审。
+4. 详细技术设计评审。
+5. 技术选型评审。
+6. 安全架构评审。
+7. 性能与可靠性评审。
+8. 数据架构评审。
+9. AI应用工程评审。
+10. 技术例外审批。
+11. 技术风险专项评审。
+
+允许企业级管理员扩展分类，但不能任意改变历史议题的分类定义。
+
+## 4.3 FR-02 DRB组织管理
+
+P0
+
+需求目标： 建立统一的多级DRB组织管理和授权管理体系。
+
+功能要求：
+
+| 功能   | 具体需求                |
+| ---- | ------------------- |
+| 组织创建 | 创建企业级、产品族级、产品级DRB   |
+| 组织层级 | 配置上级DRB、下级DRB       |
+| 治理范围 | 关联产品族、产品及适用技术领域     |
+| 组织章程 | 定义职责、成员要求、表决规则、会议规则 |
+| 决策授权 | 定义可决策事项、可批准的风险级别    |
+| 成员任命 | 任命主席、副主席、秘书、正式成员    |
+| 专项组织 | 创建安全、性能、AI等专项专家组    |
+| 组织变更 | 支持成员变更、组织调整、暂停和撤销   |
+| 组织历史 | 保留历史组织结构和章程版本       |
+
+每个DRB必须配置：
+
+- 组织编码、名称、层级。
+- 管辖范围。
+- 上级组织。
+- 主席、副主席、秘书。
+- 成员及任期。
+- 可评审议题范围。
+- 可决策议题范围。
+- 适用的评审规则。
+- 表决规则。
+- 上级升级条件。
+- 组织章程版本。
+
+### 授权配置的核心设计
+
+不要将授权简单地设计为“是否可以审批”。
+
+应采用授权策略：
+
+`组织 + 议题范围 + 影响等级 + 风险等级 + 决策类型 + 授权期限`
+
+例如：
+
+| DRB       | 允许评审     | 允许决策        | 限制              |
+| --------- | -------- | ----------- | --------------- |
+| 企业级DRB    | 企业级、跨产品族 | 企业级技术决策     | 企业强制性制度约束       |
+| CRM产品族DRB | CRM产品族内部 | 产品族级架构决策    | 不得修改企业技术基线      |
+| CRM产品级评审组 | 指定产品内部   | 授权范围内的产品设计  | 不得决策跨产品族事项      |
+| 安全专项组     | 指定安全领域   | 专业意见或授权安全结论 | 不因专业身份自动获得架构决策权 |
+
+## 4.4 FR-03 DRB成员和专家管理
+
+P0
+
+需要分离三个实体：
+
+- 人员：来自企业统一身份系统。
+- 专家档案：专业能力和资格。
+- DRB任职：在某个组织中担任什么角色。
+
+### 专家档案字段
+
+| 分类   | 字段             |
+| ---- | -------------- |
+| 基础信息 | 姓名、工号、部门、岗位    |
+| 专业信息 | 专业领域、技术方向、能力等级 |
+| 能力证据 | 项目经验、技术成果、认证   |
+| 专家资格 | 资格等级、认定机构、有效期  |
+| 组织关系 | 所属DRB、兼职DRB、任期 |
+| 评审权限 | 允许评审的类型、领域和层级  |
+| 评审历史 | 参与议题、意见、投票、评价  |
+| 状态   | 有效、暂停、到期、撤销    |
+
+### 专家推荐规则
+
+建议分为两种：
+
+规则推荐：
+
+根据专业标签、议题级别、技术领域、成员资格和负载推荐。
+
+人工指定：
+
+由主席或秘书手工指定，并记录推荐或指定理由。
+
+系统推荐不能自动完成专家任命，更不能自动赋予投票权。
+
+## 4.5 FR-04 评审活动管理
+
+P0
+
+每个议题可以创建多次评审活动。
+
+功能要求：
+
+- 创建评审活动。
+- 关联议题和本轮材料快照。
+- 指定DRB。
+- 指定主席、秘书、汇报人。
+- 选择评审成员。
+- 设定评审日期、地点及线上会议地址。
+- 创建会议议程。
+- 发布评审邀请。
+- 成员接受或拒绝邀请。
+- 查看会前阅读状态。
+- 收集会前意见。
+- 会议记录及纪要。
+- 生成正式评审报告。
+
+会议议程建议支持：
+
+| 议程   | 内容             |
+| ---- | -------------- |
+| 会议开场 | 介绍评审目的、范围和规则   |
+| 方案汇报 | 议题负责人汇报设计方案    |
+| 专家提问 | 专家提出问题         |
+| 专业讨论 | 按架构、性能、安全等领域讨论 |
+| 意见确认 | 确认正式评审意见       |
+| 投票表决 | 专家提交表决         |
+| 主席总结 | 确认下一步行动和决策流程   |
+
+## 4.6 FR-05 评审投票管理
+
+P0
+
+### 投票规则配置
+
+建议将投票规则设计为独立的规则模板。
+
+| 参数     | 说明                 | 示例         |
+| ------ | ------------------ | ---------- |
+| 投票模式   | 公开/匿名              | 匿名         |
+| 投票选项   | 通过、有条件通过、不通过、暂缓、弃权 | 五选项        |
+| 投票资格   | 哪些成员可以投票           | 正式成员       |
+| 最低出席比例 | 法定人数要求             | 2/3        |
+| 最低有效票数 | 有效表决数量要求           | 2/3        |
+| 同意通过比例 | 同意票占比              | 2/3        |
+| 弃权处理   | 是否纳入分母             | 不纳入有效票分母   |
+| 主席权限   | 是否具有特别权限           | 仅有主持及授权决策权 |
+| 重新投票   | 是否允许               | 需主席批准      |
+
+具体比例为可配置示例，不作为企业统一默认规则。
+
+### 投票记录
+
+每条投票必须包含：
+
+- 议题ID。
+- 评审活动ID。
+- 评审成员ID。
+- 当时的投票资格快照。
+- 投票结果。
+- 投票意见。
+- 投票时间。
+- 投票版本。
+- 是否有效。
+- 是否回避。
+
+匿名投票要求：普通参会成员无法看到其他人的个人投票；具有审计权限的指定人员可以在制度授权范围内查询原始记录。
+
+### 投票结果计算
+
+建议将投票计算分成三步：
+
+1. 判断表决资格和出席人数。
+2. 计算有效票和各选项票数。
+3. 根据规则模板计算表决结果。
+
+例如：
+
+- 有资格投票人数：9。
+- 实际出席人数：8。
+- 有效投票人数：8。
+- 同意票：6。
+- 反对票：2。
+- 同意比例：75%。
+
+如果规则要求出席比例不低于2/3，且同意比例不低于2/3，则达到表决通过条件。
+
+但正式决策仍需由有授权的决策人确认。
+
+## 4.7 FR-06 评审意见管理
+
+P0
+
+评审意见分为两类：
+
+普通评审意见
+
+一般建议、优化项、待澄清事项。
+
+正式评审问题
+
+需要明确责任人、整改期限、验收标准和验证结果的问题。
+
+功能要求：
+
+- 专家在线提交意见。
+- 会议现场记录意见。
+- 关联材料章节和技术对象。
+- 意见分类、分级。
+- 意见合并、去重。
+- 主席确认正式意见。
+- 指定整改责任人。
+- 指定验证人。
+- 设置整改截止时间。
+- 责任人反馈整改方案。
+- 上传整改证据。
+- 验证通过或退回。
+- 申请风险接受。
+- 申诉及争议处理。
+- 关闭和归档。
+
+### 意见数据字段
+
+| 字段                  | 说明          |
+| ------------------- | ----------- |
+| comment_id          | 意见编号        |
+| topic_id            | 所属议题        |
+| session_id          | 所属评审活动      |
+| author_id           | 提出人         |
+| domain              | 专业领域        |
+| severity            | 严重程度        |
+| description         | 问题描述        |
+| evidence            | 问题证据        |
+| reference           | 关联文档章节或设计对象 |
+| requirement         | 整改要求        |
+| acceptance_criteria | 验收标准        |
+| assignee            | 整改责任人       |
+| verifier            | 验证人         |
+| due_date            | 整改期限        |
+| status              | 当前状态        |
+
+## 4.8 FR-07 决策管理
+
+P0
+
+决策管理是整个平台区别于一般会议管理系统的核心能力。
+
+建议每项议题至少形成一份正式决策记录。
+
+决策内容：
+
+| 字段   | 说明                 |
+| ---- | ------------------ |
+| 决策编号 | 全局唯一               |
+| 议题编号 | 对应议题               |
+| 评审活动 | 对应评审轮次             |
+| 决策类型 | 通过、附条件通过、不通过、暂缓、豁免 |
+| 决策结论 | 正式文字结论             |
+| 决策依据 | 评审材料、投票结果、专家意见     |
+| 关键分歧 | 反对意见和未解决争议         |
+| 附加条件 | 通过的前置或后置条件         |
+| 风险接受 | 已接受的风险和责任人         |
+| 决策人  | 有授权的决策责任人          |
+| 授权依据 | DRB章程及授权规则版本       |
+| 生效时间 | 决策生效时间             |
+| 失效条件 | 决策失效、复审条件          |
+
+决策必须保留版本历史。
+
+例如：
+
+- V1：有条件通过。
+- V2：完成整改，正式通过。
+- V3：因架构变化，重新评审并修订原决策。
+
+不能通过直接修改V1内容来形成V2。
+
+## 4.9 FR-08 整改与风险管理
+
+P0
+
+整改管理要支持：
+
+- 评审意见转整改任务。
+- 整改任务分派。
+- 整改计划和时间。
+- 关联研发项目或缺陷单。
+- 整改证据提交。
+- 独立验证。
+- 验证不通过退回。
+- 整改超期提醒。
+- 风险接受审批。
+- 风险复审。
+- 重大风险跟踪。
+
+风险接受必须具备：
+
+1. 风险描述。
+2. 风险影响。
+3. 接受理由。
+4. 缓解措施。
+5. 风险责任人。
+6. 授权批准人。
+7. 有效期限。
+8. 重新评估触发条件。
+
+风险接受不是问题关闭的另一种快捷方式，而是正式承担风险责任。
+
+## 4.10 FR-09 评价管理
+
+P1
+
+建议采用独立评价模型。
+
+| 评价对象  | 评价人        | 评价时点  |
+| ----- | ---------- | ----- |
+| 技术方案  | 评审专家       | 评审完成后 |
+| 评审活动  | 参会成员       | 会议结束后 |
+| 专家贡献  | 主席、其他授权评价人 | 评审完成后 |
+| DRB组织 | 企业级管理者     | 周期性评价 |
+| 整改质量  | 验证人        | 整改关闭后 |
+
+评价结果必须区分：
+
+- 主观评分。
+- 客观统计。
+- 后续质量结果。
+
+不要把这三种数据简单加权成为一个专家能力总分。
+
+# 五、核心业务规则库（BR）
+
+建议将业务规则集中管理，而不是分散在页面和后端代码中。
+
+## 5.1 组织与授权规则
+
+| 规则ID   | 规则名称    | 规则定义                    |
+| ------ | ------- | ----------------------- |
+| BR-001 | 组织层级约束  | 企业级、产品族级、产品级必须满足组织层级关系  |
+| BR-002 | 治理范围唯一性 | 同一产品在同一有效时间内应有明确的主归属DRB |
+| BR-003 | 专项组织约束  | 专项DRB只能在授权专业范围内评审或决策    |
+| BR-004 | 授权范围约束  | 任何正式决策不得超过DRB有效授权范围     |
+| BR-005 | 上级治理优先  | 下级DRB不得修改企业级强制性技术基线     |
+| BR-006 | 授权版本冻结  | 评审活动创建时冻结适用的授权规则版本      |
+| BR-007 | 成员资格有效  | 评审成员在评审发生时必须具备有效资格      |
+| BR-008 | 跨级评审    | 超出本级范围的议题必须升级或申请授权      |
+| BR-009 | 组织变更保护  | 已启动的评审活动不因组织变更而自动失效     |
+| BR-010 | 决策不可越权  | 无决策权限者不能发布正式决策          |
+
+## 5.2 议题规则
+
+| 规则ID   | 规则名称   | 规则定义               |
+| ------ | ------ | ------------------ |
+| BR-011 | 议题唯一编号 | 全局唯一且不可重复          |
+| BR-012 | 议题必须归属 | 必须关联治理范围或申请企业级归属   |
+| BR-013 | 分级推荐   | 根据影响范围、风险和规则推荐评审层级 |
+| BR-014 | 人工调整留痕 | 手工调整层级必须记录原因和操作者   |
+| BR-015 | 议题升级   | 升级后保留原评审历史         |
+| BR-016 | 多轮评审   | 每轮评审独立产生材料快照和评审记录  |
+| BR-017 | 材料冻结   | 正式评审开始后锁定材料版本      |
+| BR-018 | 议题关闭   | 所有强制性条件满足后才允许关闭    |
+
+## 5.3 投票与决策规则
+
+| 规则ID   | 规则名称   | 规则定义                  |
+| ------ | ------ | --------------------- |
+| BR-019 | 投票资格   | 只有当前评审活动中有有效投票权的成员可投票 |
+| BR-020 | 投票唯一性  | 每个成员每轮正式表决只能有一份有效票    |
+| BR-021 | 投票规则冻结 | 投票启动后不能修改本轮投票规则       |
+| BR-022 | 表决人数检查 | 未达到最低人数不得形成有效表决       |
+| BR-023 | 弃权计算   | 按规则模板确定是否计入分母         |
+| BR-024 | 回避处理   | 回避成员不参与相关投票           |
+| BR-025 | 决策独立性  | 投票结果不自动成为正式决策         |
+| BR-026 | 决策授权   | 正式决策必须由有权限人员确认        |
+| BR-027 | 决策修订   | 已发布决策只能通过新版本修订        |
+| BR-028 | 反对意见留痕 | 重要反对意见必须保留在正式决策档案中    |
+
+## 5.4 意见与整改规则
+
+| 规则ID   | 规则名称    | 规则定义            |
+| ------ | ------- | --------------- |
+| BR-029 | 意见独立编号  | 每条正式意见有唯一编号     |
+| BR-030 | 意见责任人   | 正式问题必须有整改责任人    |
+| BR-031 | 意见验收标准  | 正式问题必须明确验收标准    |
+| BR-032 | P0/P1控制 | 高严重度问题不能无授权关闭   |
+| BR-033 | 整改验证独立  | 整改人原则上不得作为唯一验证人 |
+| BR-034 | 证据要求    | 正式整改关闭必须有验证证据   |
+| BR-035 | 风险接受审批  | 风险接受必须经过相应级别授权  |
+| BR-036 | 逾期升级    | 重大意见逾期自动提醒并升级   |
+| BR-037 | 关闭条件    | 未解决的强制性问题阻止议题关闭 |
+
+## 5.5 评价规则
+
+| 规则ID   | 规则名称   | 规则定义              |
+| ------ | ------ | ----------------- |
+| BR-038 | 评价对象分离 | 方案、过程、专家、组织分别评价   |
+| BR-039 | 评价可追溯  | 每个评分保留评价人、时间和依据   |
+| BR-040 | 防止数量导向 | 不以意见数量直接衡量专家贡献    |
+| BR-041 | 客观结果关联 | 允许关联生产质量、缺陷和事故数据  |
+| BR-042 | 评价版本   | 评价指标定义变化不能覆盖历史结果  |
+| BR-043 | 评价权限   | 专家评价不能由本人自评代替独立评价 |
+
+# 六、数据模型设计
+
+建议采用统一主数据 + 业务事务数据 + 决策证据数据三层结构。
+
+## 6.1 数据架构分层
+
+第一层：治理主数据
+
+DRB组织、人员、专家档案、专业领域、授权策略、评审规则、产品架构归属
+
+第二层：业务事务数据
+
+议题、评审活动、成员分配、会议、投票、意见、整改任务、评价
+
+第三层：决策与证据数据
+
+材料快照、投票快照、正式决策、ADR、风险接受、整改验证、审计日志
+
+这里特别强调：第三层不能只保留当前状态，要保留决策发生时的证据快照。
+
+## 6.2 数据实体清单
+
+### A. 组织与专家域
+
+| 表名                     | 中文名称    | 主键 | 核心字段                             |
+| ---------------------- | ------- | -- | -------------------------------- |
+| `drb_org`              | DRB组织   | id | code、name、level、parent_id、scope  |
+| `drb_scope`            | DRB治理范围 | id | drb_id、scope_type、scope_id       |
+| `drb_charter`          | DRB章程   | id | drb_id、version、content、status    |
+| `drb_member`           | DRB任职   | id | drb_id、person_id、role、term       |
+| `expert_profile`       | 专家档案    | id | person_id、level、status           |
+| `expert_domain`        | 专业领域    | id | code、name、parent_id              |
+| `expert_capability`    | 专家能力    | id | expert_id、domain_id、level        |
+| `expert_qualification` | 专家资格    | id | expert_id、qualification、validity |
+| `authorization_policy` | 授权策略    | id | drb_id、scope、action、condition    |
+| `review_rule_set`      | 评审规则模板  | id | code、version、rule_config         |
+
+### B. 议题与评审域
+
+| 表名                         | 中文名称   | 主键 | 核心字段                                 |
+| -------------------------- | ------ | -- | ------------------------------------ |
+| `review_topic`             | 评审议题   | id | code、title、type、level、status         |
+| `review_topic_scope`       | 议题影响范围 | id | topic_id、scope_type、scope_id         |
+| `review_topic_relation`    | 议题关联   | id | source_id、target_id、relation_type    |
+| `review_session`           | 评审活动   | id | topic_id、drb_id、round_no、status      |
+| `review_assignment`        | 评审任务   | id | session_id、person_id、role、vote_right |
+| `review_material`          | 评审材料   | id | topic_id、version、file_id             |
+| `review_material_snapshot` | 材料快照   | id | session_id、material_id、version       |
+| `review_agenda`            | 评审议程   | id | session_id、title、sequence            |
+| `review_attendance`        | 会议出席记录 | id | session_id、person_id、status          |
+
+### C. 投票与决策域
+
+| 表名                        | 中文名称   | 主键 | 核心字段                                  |
+| ------------------------- | ------ | -- | ------------------------------------- |
+| `review_ballot`           | 投票轮次   | id | session_id、rule_snapshot、status       |
+| `review_vote`             | 成员投票   | id | ballot_id、person_id、vote_value        |
+| `review_vote_result`      | 表决结果   | id | ballot_id、valid_count、result          |
+| `review_decision`         | 正式决策   | id | topic_id、session_id、decision_type     |
+| `review_decision_version` | 决策版本   | id | decision_id、version、content           |
+| `review_adr`              | 架构决策记录 | id | decision_id、context、options、rationale |
+| `risk_acceptance`         | 风险接受   | id | decision_id、risk_id、approver_id       |
+
+### D. 意见与整改域
+
+| 表名                        | 中文名称 | 主键 | 核心字段                            |
+| ------------------------- | ---- | -- | ------------------------------- |
+| `review_comment`          | 评审意见 | id | session_id、author_id、severity   |
+| `review_comment_relation` | 意见关联 | id | comment_id、related_comment_id   |
+| `review_action`           | 整改任务 | id | comment_id、assignee_id、due_date |
+| `action_evidence`         | 整改证据 | id | action_id、file_id、evidence_type |
+| `action_verification`     | 整改验证 | id | action_id、verifier_id、result    |
+| `risk_record`             | 技术风险 | id | topic_id、severity、status        |
+
+### E. 评价与审计域
+
+| 表名                    | 中文名称 | 主键 | 核心字段                            |
+| --------------------- | ---- | -- | ------------------------------- |
+| `evaluation_template` | 评价模板 | id | type、version、config             |
+| `evaluation_instance` | 评价实例 | id | target_type、target_id、status    |
+| `evaluation_score`    | 评价明细 | id | instance_id、dimension、score     |
+| `review_audit_log`    | 审计日志 | id | actor、action、resource、time      |
+| `review_event`        | 业务事件 | id | event_type、aggregate_id、payload |
+
+## 6.3 核心ER关系
+
+\#chatgpt-mermaid-\_r_297\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_297\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_297\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_297\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_297\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_297\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_297\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_297\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_297\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_297\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_297\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_297\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_297\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_297\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_297\_ p{margin:0;}#chatgpt-mermaid-\_r_297\_ .entityBox{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_297\_ .relationshipLabelBox{fill:rgb(243, 243, 243);opacity:0.7;background-color:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_297\_ .relationshipLabelBox rect{opacity:0.5;}#chatgpt-mermaid-\_r_297\_ .labelBkg{background-color:rgba(243, 243, 243, 0.5);}#chatgpt-mermaid-\_r_297\_ .edgeLabel{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_297\_ .edgeLabel .label rect{fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_297\_ .edgeLabel .label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_297\_ .edgeLabel .label{fill:rgb(83, 154, 248);font-size:14px;}#chatgpt-mermaid-\_r_297\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_297\_ .edge-pattern-dashed{stroke-dasharray:8,8;}#chatgpt-mermaid-\_r_297\_ .node rect,#chatgpt-mermaid-\_r_297\_ .node circle,#chatgpt-mermaid-\_r_297\_ .node ellipse,#chatgpt-mermaid-\_r_297\_ .node polygon{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_297\_ .relationshipLine{stroke:rgb(143, 143, 143);stroke-width:1px;fill:none;}#chatgpt-mermaid-\_r_297\_ .marker{fill:none!important;stroke:rgb(143, 143, 143)!important;stroke-width:1;}#chatgpt-mermaid-\_r_297\_ [data-look=neo].labelBkg{background-color:rgba(243, 243, 243, 0.5);}#chatgpt-mermaid-\_r_297\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_297\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_297\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_297\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_297\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_297\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_297\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_297\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_297\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}DRB_ORGDRB_SCOPEDRB_MEMBERDRB_CHARTERPERSONEXPERT_PROFILEEXPERT_CAPABILITYAUTHORIZATION_POLICYREVIEW_TOPICREVIEW_SESSIONREVIEW_ASSIGNMENTREVIEW_MATERIAL_SNAPSHOTREVIEW_BALLOTREVIEW_VOTEREVIEW_DECISIONREVIEW_DECISION_VERSIONREVIEW_COMMENTREVIEW_ACTIONACTION_VERIFICATIONEVALUATION_INSTANCEownshasgoverned_byappointedhaspossessesgrantscontainsorganizesassignsfreezesconductscollectsconcludesversionsproducesgeneratesverifiesevaluates
+
+## 6.4 关键数据建模细节
+
+这里有几个非常容易在开发阶段出错的地方。
+
+第一：DRB成员不能直接等同于评审成员。
+
+一个人可以在企业级DRB任职，但不一定参与某个产品族的具体议题。需要通过 `review_assignment` 独立分配评审任务。
+
+第二：专家资格与投票权不能合并。
+
+专家具有安全专业资格，只能说明具备安全评审能力。是否能够对某个议题投票，需要在具体评审任务中授权。
+
+第三：评审活动必须有快照。
+
+评审活动启动时，应冻结：
+
+- 议题版本。
+- 评审材料版本。
+- DRB组织及章程版本。
+- 专家资格状态。
+- 评审成员名单。
+- 投票规则版本。
+- 授权策略版本。
+
+否则将来无法准确回答：当时是谁参与评审、按照什么规则投票、依据什么材料做出决策。
+
+第四：决策记录不能只存一个状态字段。
+
+决策应当是独立的、版本化的、可审计的业务对象。
+
+第五：跨级升级不是简单修改议题的DRB_ID。
+
+应保留原评审活动和原DRB，建立升级关系，记录升级原因、原组织意见和上级受理结果。
+
+## 6.5 建议的核心数据字段规范
+
+所有业务表统一考虑：
+
+| 字段         | 类型            | 说明                   |
+| ---------- | ------------- | -------------------- |
+| id         | UUID / BIGINT | 主键                   |
+| tenant_id  | VARCHAR       | 组织隔离标识（如适用）          |
+| status     | VARCHAR       | 当前业务状态               |
+| version    | INT           | 乐观锁版本                |
+| created_by | VARCHAR       | 创建人                  |
+| created_at | TIMESTAMP     | 创建时间                 |
+| updated_by | VARCHAR       | 修改人                  |
+| updated_at | TIMESTAMP     | 修改时间                 |
+| deleted_at | TIMESTAMP     | 软删除时间（仅适用于允许撤销的业务数据） |
+
+投票、正式决策、审计日志等关键记录不能采用普通软删除来实现无痕删除。
+
+# 七、页面级功能设计（UI/UX PRD）
+
+建议采用PC端为主的工作台设计，移动端主要用于查看通知、提交意见和投票。
+
+## 7.1 页面导航结构
+
+```
+技术评审管理平台
+│
+├── 01 评审工作台
+│   ├── 我的待办
+│   ├── 我的评审
+│   ├── 我的投票
+│   ├── 我的整改
+│   └── 组织工作台
+│
+├── 02 议题管理
+│   ├── 全部议题
+│   ├── 我发起的
+│   ├── 待受理
+│   ├── 评审中
+│   ├── 待决策
+│   ├── 整改中
+│   └── 已关闭
+│
+├── 03 DRB组织管理
+│   ├── 组织架构
+│   ├── 企业级DRB
+│   ├── 产品族DRB
+│   ├── 产品级评审组
+│   ├── 专项专家组
+│   ├── 章程与授权
+│   └── 评审规则
+│
+├── 04 专家管理
+│   ├── 专家库
+│   ├── 专业领域
+│   ├── 专家资格
+│   ├── 任职管理
+│   └── 专家贡献
+│
+├── 05 评审与决策
+│   ├── 评审会议
+│   ├── 评审议程
+│   ├── 意见收集
+│   ├── 投票表决
+│   ├── 决策管理
+│   └── ADR档案
+│
+├── 06 整改与闭环
+│   ├── 全部意见
+│   ├── 整改任务
+│   ├── 待验证
+│   ├── 风险接受
+│   └── 逾期问题
+│
+├── 07 评价与分析
+│   ├── 议题分析
+│   ├── 评审质量
+│   ├── 专家评价
+│   ├── DRB运行评价
+│   └── 技术风险分析
+│
+└── 08 平台配置
+    ├── 业务字典
+    ├── 工作流配置
+    ├── 权限配置
+    ├── 通知配置
+    └── 系统审计
+```
+
+下面对重点页面给出详细设计。
+
+## 7.2 页面 P01：评审工作台
+
+P0
+
+页面目标： 根据用户身份、组织和权限，呈现需要其处理的评审任务。
+
+页面布局：
+
+技术评审工作台
+
+示意原型
+
+个人任务 · 组织任务 · 评审状态
+
+# 12
+
+待评审
+
+# 4
+
+待投票
+
+# 6
+
+待整改
+
+# 3
+
+待决策
+
+待办任务
+
+Agent身份与权限架构设计
+
+待评审
+
+截止日期：11-10
+
+查看详情 →
+
+CRM核心系统架构升级
+
+待投票
+
+截止日期：11-11
+
+查看详情 →
+
+数据库迁移技术方案
+
+待整改
+
+截止日期：11-12
+
+查看详情 →
+
+组织评审概览
+
+# 18
+
+本月评审议题
+
+# 9
+
+待处理重大意见
+
+仅为页面结构示例，非真实业务数据。
+
+页面功能：
+
+| 区域   | 功能              | 操作       |
+| ---- | --------------- | -------- |
+| 个人待办 | 待评审、待投票、待整改、待验证 | 点击进入任务   |
+| 组织待办 | 当前DRB未处理事项      | 主席、秘书可见  |
+| 近期会议 | 未来会议及邀请         | 查看、接受、拒绝 |
+| 逾期事项 | 超期整改和未完成决策      | 催办、升级    |
+| 质量概览 | 评审数量、重大意见、关闭率   | 查看分析     |
+
+个性化规则：用户只能看到与其权限、任职、评审分配和治理范围有关的事项。
+
+## 7.3 页面 P02：议题列表页
+
+页面目标： 统一管理各级技术评审议题。
+
+页面区域：
+
+- 查询区。
+- 统计区。
+- 议题列表。
+- 操作区。
+
+查询条件：
+
+| 字段      | 类型   |
+| ------- | ---- |
+| 议题名称/编号 | 模糊搜索 |
+| 议题类型    | 下拉   |
+| 评审层级    | 下拉   |
+| 产品族     | 下拉   |
+| 产品      | 下拉   |
+| DRB组织   | 下拉   |
+| 风险等级    | 下拉   |
+| 议题状态    | 多选   |
+| 发起人     | 人员选择 |
+| 时间范围    | 日期区间 |
+
+列表字段：
+
+| 字段     | 说明        |
+| ------ | --------- |
+| 议题编号   | 唯一标识      |
+| 议题名称   | 点击进入详情    |
+| 评审类型   | 架构/设计/专项等 |
+| 产品族    | 组织归属      |
+| 评审级别   | L1/L2/L3  |
+| DRB    | 当前受理组织    |
+| 风险等级   | R1-R4     |
+| 当前状态   | 议题状态      |
+| 当前负责人  | 议题负责人     |
+| 计划评审时间 | 计划日期      |
+| 当前轮次   | 第几次评审     |
+
+操作权限：
+
+- 发起人：编辑草稿、提交、撤回未受理议题。
+- DRB秘书：受理、退回、路由调整。
+- 主席：批准升级、确定评审组织。
+- 普通成员：查看有权限的议题。
+
+## 7.4 页面 P03：新建议题页
+
+建议采用向导式表单，减少一次性填报的复杂度。
+
+## 新建技术评审议题
+
+01 基础信息
+
+02 技术背景
+
+03 影响评估
+
+04 评审材料
+
+议题名称 \*
+
+评审类型 \*总体架构评审
+
+所属产品族 \*营销服务
+
+影响范围 \*
+
+单产品
+
+单产品族
+
+跨产品族
+
+企业级
+
+初始风险等级 \*
+
+R1R2R3R4
+
+系统路由建议
+
+推荐评审级别
+
+L1 企业级
+
+最终级别以系统完整规则计算和授权人员确认结果为准。
+
+模拟提交议题信息
+
+以上为需求交互原型，正式提交应调用平台服务并执行权限、字段和路由校验。
+
+实际产品还需包含技术背景、问题描述、方案目标、预期决策和附件上传等字段。
+
+## 7.5 页面 P04：议题详情页
+
+核心页面
+
+建议采用顶部状态区 + 左侧导航 + 主内容区。
+
+顶部信息：
+
+- 议题名称、编号。
+- 当前评审级别。
+- 当前DRB。
+- 当前状态。
+- 当前评审轮次。
+- 议题负责人。
+- 操作按钮。
+
+Tab结构：
+
+| Tab  | 内容                 |
+| ---- | ------------------ |
+| 议题概览 | 背景、目标、影响范围、风险、评审诉求 |
+| 技术材料 | 材料列表、版本、评审快照       |
+| 评审组织 | DRB、成员、专家、资格、权限    |
+| 评审活动 | 评审会议、议程、预审、讨论      |
+| 投票记录 | 投票规则、投票统计、投票结果     |
+| 评审意见 | 意见列表、问题分级、处理状态     |
+| 正式决策 | 决策结论、授权依据、ADR      |
+| 整改闭环 | 任务、证据、验证、风险接受      |
+| 评价结果 | 方案评价、过程评价          |
+
+页面必须显示议题历史时间线，能够回答：
+
+- 谁在什么时候发起议题？
+- 谁调整过评审级别？
+- 为什么升级？
+- 哪些专家参加了评审？
+- 当时评审的材料是什么版本？
+- 谁投了什么票？
+- 最终由谁决策？
+- 有哪些意见没有解决？
+- 哪些风险被正式接受？
+
+## 7.6 页面 P05：DRB组织架构管理
+
+页面目标： 管理三级DRB和横向专项组织。
+
+建议采用左侧组织树、右侧组织详情。
+
+DRB组织管理
+
+企业级技术DRB
+
+L1
+
+营销服务产品族DRB
+
+L2
+
+产品A评审组
+
+L3
+
+产品B评审组
+
+L3
+
+客户管理产品族DRB
+
+L2
+
+安全专项专家组
+
+横向
+
+性能与可靠性专家组
+
+横向
+
+组织结构示意，实际组织从平台配置和组织主数据生成。
+
+组织详情页面包含：
+
+- 基本信息。
+- 治理范围。
+- 组织成员。
+- 专业专家。
+- 授权规则。
+- 评审规则。
+- 组织章程。
+- 历史变更。
+- 运行统计。
+
+操作包括：创建组织、变更组织、任命成员、撤销任职、配置授权、发布章程。
+
+## 7.7 页面 P06：DRB授权配置页
+
+这是模式C中特别重要的配置页面。
+
+建议采用授权矩阵，不要用一堆分散的开关。
+
+| 配置维度   | 配置示例                  |
+| ------ | --------------------- |
+| 授权组织   | 营销服务产品族DRB            |
+| 议题类型   | 产品架构、技术设计             |
+| 产品范围   | 营销服务产品族               |
+| 风险等级   | R2-R4                 |
+| 允许评审   | 是                     |
+| 允许表决   | 是                     |
+| 允许正式决策 | 授权范围内                 |
+| 例外审批   | 否                     |
+| 强制升级条件 | 跨产品族、企业技术基线变更         |
+| 授权有效期  | 2026-01-01至2026-12-31 |
+
+必须支持授权的创建、审批、生效、暂停、到期和版本管理。
+
+## 7.8 页面 P07：专家库管理
+
+页面分为：
+
+- 专家列表。
+- 专家档案。
+- 专业领域。
+- 专家资格。
+- 专家任职。
+- 评审历史。
+- 专家贡献分析。
+
+专家列表字段：
+
+| 字段    | 说明        |
+| ----- | --------- |
+| 专家姓名  | 人员主数据     |
+| 所属部门  | 组织信息      |
+| 专业领域  | 架构、安全、性能等 |
+| 技术方向  | 具体技术标签    |
+| 能力等级  | 专家级别      |
+| DRB任职 | 当前任职组织    |
+| 评审次数  | 历史参与次数    |
+| 当前状态  | 有效、暂停、到期  |
+
+专家档案详情必须支持查看资格有效期和历史变化。
+
+## 7.9 页面 P08：评审会议工作台
+
+核心页面
+
+会议页面建议分成四个区域：
+
+1. 会议基本信息和议程。
+2. 评审材料。
+3. 专家意见。
+4. 投票与结论。
+
+会前模式：
+
+- 查看材料。
+- 标记已阅读。
+- 提交预审意见。
+- 提交专业风险。
+- 提交投票前建议。
+
+会中模式：
+
+- 记录讨论。
+- 关联材料位置。
+- 将讨论内容转为正式意见。
+- 确认意见严重程度。
+- 主席发起表决。
+
+会后模式：
+
+- 汇总意见。
+- 确认表决结果。
+- 形成决策草案。
+- 发布会议纪要。
+
+## 7.10 页面 P09：投票页面
+
+建议设计为独立页面或会议工作台内的投票面板。
+
+| 区域   | 功能            |
+| ---- | ------------- |
+| 议题信息 | 显示当前议题、评审轮次   |
+| 投票规则 | 显示投票资格、门槛和选项  |
+| 投票操作 | 选择投票结果、填写理由   |
+| 投票状态 | 已投票、未投票、弃权、回避 |
+| 统计结果 | 显示票数和表决结论     |
+| 决策入口 | 授权决策人确认或驳回    |
+
+必须有两个操作：
+
+- 提交投票。
+- 确认表决结果。
+
+两者不是同一个操作。
+
+投票提交后是否允许修改，按照规则模板确定；默认在投票封存前允许撤回并重新提交，但保留每次操作记录。
+
+## 7.11 页面 P10：评审意见管理页
+
+页面布局：
+
+- 左侧：意见分类和筛选。
+- 中间：意见列表。
+- 右侧：意见详情、整改及验证记录。
+
+意见列表字段：
+
+| 字段    | 说明         |
+| ----- | ---------- |
+| 意见编号  | 唯一编号       |
+| 所属议题  | 议题关联       |
+| 专业领域  | 意见类型       |
+| 严重程度  | P0-P3      |
+| 提出人   | 专家         |
+| 整改责任人 | 责任人        |
+| 整改期限  | 时间         |
+| 当前状态  | 处理状态       |
+| 验证状态  | 待验证、通过、不通过 |
+
+建议支持批量分派、批量催办，但不能批量关闭重大问题。
+
+## 7.12 页面 P11：整改验证页
+
+整改责任人视图：
+
+- 查看整改要求。
+- 查看验收标准。
+- 关联研发任务。
+- 上传修改材料。
+- 上传测试证据。
+- 提交验证。
+
+验证人员视图：
+
+- 查看原始问题。
+- 查看整改前后差异。
+- 检查证据。
+- 填写验证意见。
+- 通过或退回。
+- 提交风险接受申请（如符合权限）。
+
+特别建议：验证人看到的不仅是整改描述，还应看到原始评审意见和对应的验收标准，防止整改偏离原始问题。
+
+## 7.13 页面 P12：正式决策管理页
+
+页面包含：
+
+- 决策基础信息。
+- 关联议题和评审活动。
+- 投票统计。
+- 专家意见汇总。
+- 关键争议。
+- 风险列表。
+- 决策结论。
+- 附加条件。
+- 决策人及授权依据。
+- 决策版本历史。
+
+决策审批流程：
+
+```
+评审结束
+   ↓
+秘书生成决策草案
+   ↓
+主席确认意见与投票
+   ↓
+检查决策权限
+   ↓
+授权决策人审批
+   ↓
+发布正式决策
+   ↓
+生成ADR/整改任务
+```
+
+## 7.14 页面 P13：评价与分析页
+
+建议按四个维度展示：
+
+企业级治理视图
+
+- 各产品族评审数量。
+- 各级DRB运行情况。
+- 跨产品族技术风险。
+- 企业级重大技术决策。
+- 评审超期及整改风险。
+
+产品族视图
+
+- 产品族评审分布。
+- 产品架构风险。
+- 产品族技术问题分布。
+- 评审意见闭环情况。
+
+专家视图
+
+- 专家参与情况。
+- 专业领域覆盖情况。
+- 有效风险识别情况。
+- 专家评价趋势。
+
+质量视图
+
+- 重大意见发现情况。
+- 评审后问题复发情况。
+- 生产问题关联分析。
+- 评审漏检分析。
+
+# 八、系统权限与安全设计
+
+## 8.1 权限模型
+
+采用四层权限控制：
+
+| 权限层  | 控制对象      | 示例            |
+| ---- | --------- | ------------- |
+| 菜单权限 | 能否进入模块    | 是否能进入DRB管理    |
+| 数据权限 | 能看到哪些数据   | 哪些产品族议题       |
+| 操作权限 | 能执行什么操作   | 创建、受理、表决      |
+| 状态权限 | 当前阶段能执行什么 | 评审开始后不能替换冻结材料 |
+
+建议权限判定逻辑：
+
+\\[ Permission = Identity \cap Organization \cap ResourceScope \cap Action \cap BusinessState \\]
+
+也就是说，仅仅具备某个角色，不意味着任何时间都能操作该资源。
+
+## 8.2 特殊安全控制
+
+- 组织授权必须有生效时间和失效时间。
+- 评审成员变化必须留痕。
+- 投票和决策记录不可无痕删除。
+- 评审材料按照文档密级进行访问控制。
+- 匿名投票的数据展示和审计权限分离。
+- 决策审批应支持双人复核等企业制度要求。
+- 关键操作记录操作者、时间、原值和新值。
+- 外部系统调用必须进行身份认证和接口授权。
+
+## 8.3 特别需要避免的权限问题
+
+不能出现以下情况：
+
+- 产品族DRB主席可以直接修改企业级技术标准。
+- 专项安全专家被自动授予所有议题的投票权。
+- 评审秘书可以替专家投票。
+- 整改责任人可以自行批准自己的风险接受申请。
+- 议题发起人可以自行关闭重大意见。
+- 已发布决策被管理员直接覆盖。
+
+# 九、系统技术架构与接口设计
+
+## 9.1 应用架构
+
+首期推荐采用模块化单体 + 领域边界清晰的设计。不要因为有多个DRB层级，就把每一级建设成独立应用。
+
+\#chatgpt-mermaid-\_r_2br\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_2br\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_2br\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_2br\_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-\_r_2br\_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_2br\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_2br\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_2br\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_2br\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_2br\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_2br\_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_2br\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_2br\_ p{margin:0;}#chatgpt-mermaid-\_r_2br\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .cluster-label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .cluster-label span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_2br\_ .label text,#chatgpt-mermaid-\_r_2br\_ span{fill:rgb(13, 13, 13);color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .node rect,#chatgpt-mermaid-\_r_2br\_ .node circle,#chatgpt-mermaid-\_r_2br\_ .node ellipse,#chatgpt-mermaid-\_r_2br\_ .node polygon,#chatgpt-mermaid-\_r_2br\_ .node path{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .rough-node .label text,#chatgpt-mermaid-\_r_2br\_ .node .label text,#chatgpt-mermaid-\_r_2br\_ .image-shape .label,#chatgpt-mermaid-\_r_2br\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_2br\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .rough-node .label,#chatgpt-mermaid-\_r_2br\_ .node .label,#chatgpt-mermaid-\_r_2br\_ .image-shape .label,#chatgpt-mermaid-\_r_2br\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_2br\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_2br\_ .root .anchor path{fill:rgb(143, 143, 143)!important;stroke-width:0;stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_2br\_ .arrowheadPath{fill:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_2br\_ .edgePath .path{stroke:rgb(143, 143, 143);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .flowchart-link{stroke:rgb(143, 143, 143);fill:none;}#chatgpt-mermaid-\_r_2br\_ .edgeLabel{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_2br\_ .edgeLabel p{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_2br\_ .edgeLabel rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_2br\_ .labelBkg{background-color:rgba(252, 252, 252, 0.5);}#chatgpt-mermaid-\_r_2br\_ .cluster rect{fill:rgb(243, 243, 243);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .cluster text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ .cluster span{color:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(243, 243, 243);border:1px solid rgba(0, 0, 0, 0.1);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_2br\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(13, 13, 13);}#chatgpt-mermaid-\_r_2br\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_2br\_ .icon-shape,#chatgpt-mermaid-\_r_2br\_ .image-shape{background-color:rgb(252, 252, 252);text-align:center;}#chatgpt-mermaid-\_r_2br\_ .icon-shape p,#chatgpt-mermaid-\_r_2br\_ .image-shape p{background-color:rgb(252, 252, 252);padding:2px;}#chatgpt-mermaid-\_r_2br\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_2br\_ .image-shape .label rect{opacity:0.5;background-color:rgb(252, 252, 252);fill:rgb(252, 252, 252);}#chatgpt-mermaid-\_r_2br\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_2br\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_2br\_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_2br\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_2br\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_2br\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_2br\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2br\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_2br\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_2br\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_2br\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(0, 79, 153);}#chatgpt-mermaid-\_r_2br\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_2br\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_2br\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .node rect,#chatgpt-mermaid-\_r_2br\_ .node circle,#chatgpt-mermaid-\_r_2br\_ .node ellipse,#chatgpt-mermaid-\_r_2br\_ .node polygon,#chatgpt-mermaid-\_r_2br\_ .node path{fill:rgb(229, 243, 255);stroke:rgba(0, 0, 0, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_2br\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_2br\_ .mermaid-decision .label-container{fill:rgb(245, 250, 255);stroke:rgb(206, 219, 229);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_2br\_ .edgePaths .flowchart-link{stroke:rgb(143, 143, 143);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_2br\_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-\_r_2br\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}公共业务能力技术评审管理应用工作流与规则引擎权限与授权引擎通知服务材料与版本服务审计服务议题管理域DRB组织与专家域评审活动域投票与决策域意见与整改域评价分析域用户入口PC / Mobile统一身份认证与API入口业务关系数据库文档对象存储事件总线企业外部系统
+
+## 9.2 领域模块边界
+
+建议按照业务聚合根划分：
+
+| 领域模块  | 核心聚合根                   | 管理职责         |
+| ----- | ----------------------- | ------------ |
+| 组织治理域 | DRB                     | 组织、成员、章程、授权  |
+| 专家能力域 | ExpertProfile           | 专家档案、能力、资格   |
+| 议题管理域 | ReviewTopic             | 议题及其生命周期     |
+| 评审活动域 | ReviewSession           | 会议、材料快照、评审任务 |
+| 投票决策域 | ReviewBallot / Decision | 投票规则、结果、正式决策 |
+| 问题闭环域 | ReviewComment / Action  | 意见、整改、验证     |
+| 评价分析域 | EvaluationInstance      | 评价及统计        |
+
+特别是 `ReviewTopic` 与 `ReviewSession` 必须是两个独立聚合根。
+
+一个议题有多轮评审，而每轮评审又有自己的材料、成员、投票和意见。
+
+## 9.3 关键API设计
+
+建议采用REST API，接口版本统一以 `/api/v1` 开始。
+
+| API                                      | 方法   | 用途     |
+| ---------------------------------------- | ---- | ------ |
+| `/review-topics`                         | POST | 创建议题   |
+| `/review-topics`                         | GET  | 查询议题   |
+| `/review-topics/{id}`                    | GET  | 获取议题详情 |
+| `/review-topics/{id}/submit`             | POST | 提交议题   |
+| `/review-topics/{id}/accept`             | POST | 受理议题   |
+| `/review-topics/{id}/route`              | POST | 调整评审路由 |
+| `/review-topics/{id}/escalate`           | POST | 议题升级   |
+| `/drbs`                                  | POST | 创建DRB  |
+| `/drbs/{id}/members`                     | POST | 任命成员   |
+| `/drbs/{id}/authorizations`              | POST | 创建授权规则 |
+| `/experts`                               | GET  | 查询专家   |
+| `/review-sessions`                       | POST | 创建评审活动 |
+| `/review-sessions/{id}/assignments`      | POST | 分配评审成员 |
+| `/review-sessions/{id}/materials/freeze` | POST | 冻结材料   |
+| `/review-sessions/{id}/comments`         | POST | 提交评审意见 |
+| `/review-sessions/{id}/ballots`          | POST | 创建投票   |
+| `/ballots/{id}/votes`                    | POST | 提交投票   |
+| `/ballots/{id}/close`                    | POST | 封存投票   |
+| `/review-decisions`                      | POST | 创建决策草案 |
+| `/review-decisions/{id}/publish`         | POST | 发布正式决策 |
+| `/review-comments/{id}/actions`          | POST | 创建整改任务 |
+| `/review-actions/{id}/verification`      | POST | 提交验证   |
+| `/evaluations`                           | POST | 创建评价   |
+
+### API设计的关键要求
+
+1. 所有写操作必须经过权限和状态检查。
+2. 所有关键写操作支持幂等键。
+3. 投票提交必须防止重复提交。
+4. 决策发布必须支持并发控制。
+5. 议题升级必须保证原始评审记录完整。
+6. 重要业务变更通过事件机制通知其他系统。
+
+## 9.4 事件设计
+
+建议定义以下业务事件：
+
+| 事件                        | 触发时机 | 下游动作         |
+| ------------------------- | ---- | ------------ |
+| `ReviewTopicCreated`      | 议题创建 | 通知DRB秘书      |
+| `ReviewTopicSubmitted`    | 议题提交 | 启动受理流程       |
+| `ReviewTopicRouted`       | 路由确认 | 通知目标DRB      |
+| `ReviewSessionStarted`    | 评审启动 | 冻结材料和规则快照    |
+| `ReviewVoteSubmitted`     | 投票提交 | 更新投票统计       |
+| `ReviewBallotClosed`      | 投票封存 | 触发决策草案       |
+| `ReviewDecisionPublished` | 决策发布 | 创建整改任务、同步ADR |
+| `ReviewCommentCreated`    | 意见确认 | 通知整改责任人      |
+| `ReviewActionOverdue`     | 整改超期 | 提醒及升级        |
+| `ReviewActionVerified`    | 整改验证 | 更新议题关闭条件     |
+| `ReviewTopicClosed`       | 议题关闭 | 归档及评价        |
+
+建议采用事务性Outbox机制，避免业务事务成功但事件没有成功发布。
+
+# 十、非功能需求（NFR）
+
+技术评审管理平台虽然不是核心交易系统，但其决策数据具有较高的管理价值和审计价值。
+
+建议定义以下基线：
+
+| 类别   | 需求       | 建议指标             |
+| ---- | -------- | ---------------- |
+| 性能   | 常规页面加载   | P95 ≤ 2秒         |
+| 性能   | 普通查询接口   | P95 ≤ 500ms      |
+| 性能   | 投票提交     | P95 ≤ 1秒         |
+| 可用性  | 平台服务     | ≥ 99.9%          |
+| 并发   | 多人同时评审   | 支持企业预估峰值并发       |
+| 一致性  | 投票和决策    | 强一致性事务           |
+| 可追溯性 | 决策和投票    | 全量留痕             |
+| 安全   | 组织和议题隔离  | 未授权访问为零          |
+| 数据保护 | 敏感材料     | 权限控制、传输加密、存储保护   |
+| 可靠性  | 业务数据     | 备份、恢复、灾备策略       |
+| 可扩展性 | DRB组织和规则 | 配置化扩展            |
+| 集成性  | 外部系统     | 标准API及事件机制       |
+| 可观测性 | 业务流程     | 议题、评审、投票、整改全链路追踪 |
+
+以上是建议目标，实际SLA、并发量、恢复目标需要结合企业现有平台基线和用户规模确认。
+
+# 十一、统计分析指标设计
+
+建议将评价管理与统计分析分开。
+
+评价管理关注具体对象的专业评价；统计分析关注组织运行情况和治理效果。
+
+## 11.1 组织运行指标
+
+| 指标      | 计算口径                |
+| ------- | ------------------- |
+| 议题受理及时率 | 规定时间内完成受理数 / 应受理数   |
+| 评审按期完成率 | 按计划完成评审数 / 计划评审数    |
+| 评审周期    | 从正式受理到正式决策的时长       |
+| 议题升级率   | 升级议题数 / 总议题数        |
+| 专家参与率   | 实际参与次数 / 应参与次数      |
+| 投票完成率   | 完成投票人数 / 应投票人数      |
+| 意见闭环率   | 已关闭正式意见 / 到期应关闭正式意见 |
+| 整改逾期率   | 逾期未关闭意见 / 应关闭意见     |
+
+## 11.2 评审质量指标
+
+| 指标      | 计算或评价方式                          |
+| ------- | -------------------------------- |
+| 首轮通过率   | 首次评审直接通过议题数 / 首次评审议题数            |
+| 重大问题发现数 | P0/P1正式问题数量                      |
+| 问题整改有效率 | 验证通过且后续未复发的问题数 / 已关闭问题数          |
+| 重大风险遗漏率 | 后续发现且可追溯为评审应识别的重大风险数 / 后续发现重大风险数 |
+| 决策返工率   | 因决策依据不足或判断错误重新决策的比例              |
+| 生产问题关联率 | 可关联评审议题的生产问题比例                   |
+
+其中重大风险遗漏率需要通过生产问题复盘、测试问题和架构风险库关联，不能单靠评审平台内部数据计算。
+
+## 11.3 专家贡献评价
+
+建议建立指标体系，但不直接生成一个排名。
+
+| 维度   | 指标              |
+| ---- | --------------- |
+| 参与贡献 | 评审次数、预审完成率      |
+| 专业贡献 | 有效意见、重大风险识别     |
+| 意见质量 | 意见证据充分度、可执行性    |
+| 决策贡献 | 关键技术分歧解决、技术决策支持 |
+| 质量贡献 | 识别问题后避免的风险及质量收益 |
+
+应防止以意见数量、反对票数量、意见采纳率作为单一绩效指标，避免诱导专家过度提意见或倾向于迎合决策。
+
+# 十二、实施计划与验收标准
+
+## 12.1 建设阶段
+
+建议按四个阶段推进。
+
+| 阶段        | 建设内容                     | 交付物       |
+| --------- | ------------------------ | --------- |
+| 第一阶段：治理基础 | 三级DRB、组织成员、专家库、授权体系、议题管理 | 组织治理和议题管理 |
+| 第二阶段：评审闭环 | 评审会议、材料、意见、投票、决策、整改      | 完整评审流程    |
+| 第三阶段：度量分析 | 评价、专家贡献、组织运行、质量分析        | 评审治理分析    |
+| 第四阶段：AI辅助 | 材料预审、规范检查、历史决策检索、风险识别    | AI辅助评审能力  |
+
+不建议第一阶段就投入大量精力建设复杂的专家评分体系。应先把授权、决策、证据和整改闭环跑通。
+
+## 12.2 P0验收标准
+
+| 验收编号  | 验收项目 | 通过条件             |
+| ----- | ---- | ---------------- |
+| AT-01 | 多级组织 | 能创建L1、L2、L3和专项组织 |
+| AT-02 | 组织授权 | 能配置不同DRB的评审权和决策权 |
+| AT-03 | 议题路由 | 能根据规则推荐和调整评审层级   |
+| AT-04 | 议题升级 | 能跨级升级并保留原有记录     |
+| AT-05 | 专家管理 | 能管理专家档案、资格、任职    |
+| AT-06 | 专家分配 | 能为具体议题分配不同权限的专家  |
+| AT-07 | 材料冻结 | 能冻结评审版本并保留历史快照   |
+| AT-08 | 投票   | 能配置规则、投票和计算结果    |
+| AT-09 | 决策   | 能独立形成正式决策并校验授权   |
+| AT-10 | 意见管理 | 能形成正式问题并分配责任人    |
+| AT-11 | 整改验证 | 能提交证据、验证和关闭      |
+| AT-12 | 风险接受 | 能执行授权审批并保留有效期    |
+| AT-13 | 审计   | 能查询完整的评审操作历史     |
+| AT-14 | 权限隔离 | 不能跨越未授权的组织范围访问数据 |
+| AT-15 | 历史追溯 | 能完整还原一次评审决策的依据   |
+
+## 12.3 必须通过的端到端验收案例
+
+建议以以下场景作为上线门槛：
+
+测试案例：跨产品族Agent身份与授权体系架构评审
+
+初始条件：
+
+- 涉及两个产品族。
+- 涉及企业级Agent身份规范。
+- 涉及安全、权限、审计和AI应用工程。
+- 存在产品族间技术接口和数据共享。
+
+预期流程：
+
+1. 产品族A发起议题。
+2. 系统识别跨产品族和企业级规范影响。
+3. 推荐L1企业级DRB。
+4. L1秘书受理议题。
+5. 邀请两个产品族架构师、安全专家、AI应用工程专家。
+6. 确认每位专家的资格和投票权限。
+7. 冻结评审材料及适用授权规则。
+8. 专家进行会前预审。
+9. 会议提出安全和任务级身份方面的正式意见。
+10. 专家完成投票。
+11. 系统计算表决结果。
+12. L1授权决策人形成正式决策。
+13. 对需要修改的部分建立整改任务。
+14. 两个产品族分别承接整改。
+15. 安全专家验证整改证据。
+16. 完成风险关闭或正式风险接受。
+17. 议题归档，形成ADR。
+18. 纳入企业级技术架构决策库。
+
+验收时必须能够回答：这个决策由谁做出、依据什么、有哪些反对意见、哪些风险被接受、由谁承担责任、整改是否真正完成。
+
+# 十三、首期落地前必须确定的六项配置
+
+以上已经形成较完整的产品设计，但有六个地方不建议直接由研发团队自行假设，需要在PRD评审时形成明确决议。
+
+| 事项      | 建议默认方案                  | 需要确认的原因         |
+| ------- | ----------------------- | --------------- |
+| L3组织形式  | 每个产品可以独立设组，也可以多个产品共享评审组 | 避免DRB组织数量过多     |
+| 专项DRB权限 | 默认拥有专业评审权，不自动拥有最终决策权    | 防止专业权限与组织决策权混淆  |
+| 企业级专家资格 | 企业统一管理，产品族可提名和推荐        | 建立专家资源共享机制      |
+| 投票机制    | 组织章程配置，支持不同表决门槛         | 不同评审类型的决策要求不同   |
+| 风险分级    | 企业统一定义R1-R4，独立于意见P0-P3  | 避免议题风险和整改严重程度混淆 |
+| 决策与关闭   | 正式决策和议题关闭分离             | 防止有条件通过后未整改就归档  |
+
+## 十四、最终建议：产品设计的三个核心抓手
+
+我建议研发团队真正开始建设时，优先抓住三个核心模型，而不是平均分配开发资源。
+
+核心模型 01
+
+治理授权模型
+
+# 谁有权评、谁有权投、谁有权决策
+
+解决三级DRB、专项专家、成员资格、组织范围和决策授权的关系。
+
+核心模型 02
+
+评审决策模型
+
+# 评什么、依据什么、形成什么决策
+
+解决议题、评审活动、材料快照、投票、正式决策、ADR的完整关系。
+
+核心模型 03
+
+风险闭环模型
+
+# 发现什么问题、谁负责、如何验证
+
+解决评审意见、整改任务、风险接受、验证证据和质量效果追踪。
+
+我的最终判断： 这三个模型是平台的核心竞争力。会议管理、专家档案、投票页面、统计报表都是围绕这三个模型构建的应用功能。
+
+如果把它们设计正确，平台不仅能支撑技术评审，还能够逐步成为企业技术架构治理的决策基础设施，并与产品族、产品、子产品、模块、技术资产和质量指标建立关联。
+
+建议下一步将本PRD进一步固化为研发可执行的 SDD（Software Design Document），重点补充：
+
+1. 全量状态机及状态迁移约束。
+2. 核心数据库DDL及字段字典。
+3. 授权策略计算规则和决策规则引擎。
+4. 完整API请求/响应契约。
+5. 关键页面交互原型。
+6. 端到端验收测试及异常场景。
+
+这样才能真正进入可由研发团队和CodeAgent执行、验证的实施阶段。

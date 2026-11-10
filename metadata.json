@@ -1,0 +1,6 @@
+{
+  "name": "技术评审与决策管理平台",
+  "description": "企业级多产品族技术治理与分级决策平台（模式 C：分级授权管理），支持三级DRB治理、智能议题路由、材料快照冻结、独立表决与授权决策、整改验证闭环与ADR知识库。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
