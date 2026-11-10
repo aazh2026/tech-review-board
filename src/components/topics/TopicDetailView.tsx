@@ -101,13 +101,13 @@ export const TopicDetailView: React.FC = () => {
   const tabs = [
     { key: 'overview', label: '议题概览' },
     { key: 'materials', label: '材料快照' },
-    { key: 'ai-scanner', label: 'AI初审体检 (建议3)' },
+    { key: 'ai-scanner', label: 'AI合规初审' },
     { key: 'organization', label: '评审组织' },
     { key: 'session', label: '评审活动' },
     { key: 'voting', label: '投票表决' },
     { key: 'comments', label: '意见与分级' },
-    { key: 'decision', label: '正式决策与ADR' },
     { key: 'remediation', label: '整改闭环' },
+    { key: 'decision', label: '正式决策与ADR' },
     { key: 'timeline', label: '审计时间线' },
   ];
 

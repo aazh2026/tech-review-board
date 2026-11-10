@@ -27,11 +27,16 @@ export const DecisionADRView: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveNav('adr-graph')}
+            onClick={() => setActiveNav('comments')}
             className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs flex items-center gap-1.5"
           >
-            <GitFork className="w-3.5 h-3.5 text-indigo-500" />
-            <span>决策网络拓扑图谱 (建议 2)</span>
+            <span>整改闭环看板 →</span>
+          </button>
+          <button
+            onClick={() => setActiveNav('topics')}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs flex items-center gap-1.5"
+          >
+            <span>查看关联议题 →</span>
           </button>
           <button
             onClick={() => setShowRevisionModal(true)}

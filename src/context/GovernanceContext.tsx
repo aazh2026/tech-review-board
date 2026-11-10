@@ -59,7 +59,8 @@ export type ActiveNavKey =
   | 'experts'
   | 'meeting'
   | 'comments'
-  | 'analytics';
+  | 'analytics'
+  | 'users';
 
 interface GovernanceContextType {
   workspaceMode: WorkspaceMode;
@@ -179,7 +180,7 @@ export const GovernanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [comments, setComments] = useState<ReviewComment[]>(FLAGSHIP_COMMENTS);
   const [verification, setVerification] = useState<ActionVerification>(FLAGSHIP_VERIFICATION);
   const [decision, setDecision] = useState<ReviewDecision>(FLAGSHIP_DECISION);
-  const [adr] = useState<ADRRecord>(FLAGSHIP_ADR);
+  const [adr, setAdr] = useState<ADRRecord>(FLAGSHIP_ADR);
 
   // 4 大演进优化专属状态
   const [incidents, setIncidents] = useState<IncidentRecord[]>(INITIAL_INCIDENTS);
@@ -297,6 +298,8 @@ export const GovernanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setTopics((prev) => [newTopic, ...prev]);
     setSelectedTopicId(id);
+    setActiveNav('topics');
+    setActiveDetailTab('overview');
   };
 
   const acceptTopic = (topicId: string, remark?: string) => {
@@ -451,6 +454,8 @@ export const GovernanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     mandatoryConditions: string[]
   ) => {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const targetTopic = topics.find((t) => t.id === topicId);
+
     setDecision((prev) => ({
       ...prev,
       decisionType,
@@ -461,6 +466,16 @@ export const GovernanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       publishedAt: timestamp,
       version: 'V1.0 (正式生效)',
     }));
+
+    if (targetTopic) {
+      setAdr((prev) => ({
+        ...prev,
+        title: targetTopic.title,
+        status: decisionType === 'REJECTED' ? 'DEPRECATED' : 'ACCEPTED',
+        context: targetTopic.background || prev.context,
+        decisionRationale: conclusionText,
+      }));
+    }
 
     setTopics((prev) =>
       prev.map((t) => {
@@ -973,6 +988,12 @@ export const GovernanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   return (
     <GovernanceContext.Provider
       value={{
+        workspaceMode,
+        setWorkspaceMode,
+        adminNav,
+        setAdminNav,
+        auditLogs,
+        logAuditEvent,
         currentPersona,
         setCurrentPersona,
         activeNav,

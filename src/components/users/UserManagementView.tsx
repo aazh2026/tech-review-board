@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGovernance } from '../../context/GovernanceContext';
 import { SystemUser, GovernanceRole } from '../../types';
+import { DRBOrgView } from '../drb/DRBOrgView';
 import {
   Users,
   UserCheck,
@@ -21,6 +22,12 @@ import {
   ChevronRight,
   ShieldCheck,
   Award,
+  History,
+  FileText,
+  Activity,
+  Terminal,
+  Network,
+  Flame,
 } from 'lucide-react';
 
 export const UserManagementView: React.FC = () => {
@@ -28,6 +35,12 @@ export const UserManagementView: React.FC = () => {
     users,
     roles,
     permissions,
+    drbOrgs,
+    auditLogs,
+    logAuditEvent,
+    adminNav,
+    setAdminNav,
+    setWorkspaceMode,
     addUser,
     updateUser,
     toggleUserStatus,
@@ -38,10 +51,44 @@ export const UserManagementView: React.FC = () => {
     currentPersona,
   } = useGovernance();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'appointments'>('users');
+  // Tab state synced with adminNav
+  const mapAdminNavToTab = (nav: string): 'users' | 'roles' | 'drb' | 'appointments' | 'audit' => {
+    if (nav === 'admin-roles') return 'roles';
+    if (nav === 'admin-drb') return 'drb';
+    if (nav === 'admin-appointments') return 'appointments';
+    if (nav === 'admin-audit') return 'audit';
+    return 'users';
+  };
+
+  const mapTabToAdminNav = (tab: string): 'admin-users' | 'admin-roles' | 'admin-drb' | 'admin-appointments' | 'admin-audit' => {
+    if (tab === 'roles') return 'admin-roles';
+    if (tab === 'drb') return 'admin-drb';
+    if (tab === 'appointments') return 'admin-appointments';
+    if (tab === 'audit') return 'admin-audit';
+    return 'admin-users';
+  };
+
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'drb' | 'appointments' | 'audit'>(
+    mapAdminNavToTab(adminNav)
+  );
+
+  useEffect(() => {
+    setActiveTab(mapAdminNavToTab(adminNav));
+  }, [adminNav]);
+
+  const handleTabChange = (tab: 'users' | 'roles' | 'drb' | 'appointments' | 'audit') => {
+    setActiveTab(tab);
+    setAdminNav(mapTabToAdminNav(tab));
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('ALL');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('ALL');
+
+  // Audit log filters
+  const [auditSearchQuery, setAuditSearchQuery] = useState('');
+  const [selectedAuditLevel, setSelectedAuditLevel] = useState<'ALL' | 'INFO' | 'WARN' | 'CRITICAL'>('ALL');
+  const [selectedAuditType, setSelectedAuditType] = useState<string>('ALL');
 
   // Selected role for permission matrix
   const [selectedRoleId, setSelectedRoleId] = useState<string>(roles[0].id);
@@ -99,6 +146,13 @@ export const UserManagementView: React.FC = () => {
 
   const handleSavePermissions = () => {
     updateRolePermissions(selectedRole.id, editingPermissions);
+    logAuditEvent({
+      eventType: 'PERM_UPDATE',
+      eventTypeName: '角色权限边界调整',
+      targetEntity: `角色 ${selectedRole.name} (${selectedRole.code})`,
+      detail: `保存 ${selectedRole.name} 的法定权限配置，现配置生效 ${editingPermissions.length} 项法定权能。`,
+      level: 'WARN',
+    });
   };
 
   const handleCreateUserSubmit = (e: React.FormEvent) => {
@@ -118,6 +172,14 @@ export const UserManagementView: React.FC = () => {
       roleLabels: newUserRoleCodes.map((c) => roles.find((r) => r.code === c)?.name || c),
     });
 
+    logAuditEvent({
+      eventType: 'USER_CREATE',
+      eventTypeName: '架构师档案录入与授权',
+      targetEntity: `${newUserName} (${newUserEmpNo})`,
+      detail: `录入新用户档案，部门：${newUserDept}，职级：${newUserLevel}，分配角色：${newUserRoleCodes.join(' · ')}。`,
+      level: 'INFO',
+    });
+
     setShowAddModal(false);
     setNewUserName('');
     setNewUserEmpNo('');
@@ -132,42 +194,57 @@ export const UserManagementView: React.FC = () => {
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
             <span>技术评审与决策管理平台</span>
             <span>/</span>
-            <span className="text-slate-900 dark:text-slate-100 font-medium">系统管理与组织授权</span>
+            <span className="text-amber-600 dark:text-amber-400 font-semibold">系统管理后台 (Admin Console)</span>
+            <span>/</span>
+            <span className="text-slate-900 dark:text-slate-100 font-medium">
+              {activeTab === 'users' && '员工与架构师档案'}
+              {activeTab === 'roles' && 'DRB 法定角色与权限矩阵 (RBAC)'}
+              {activeTab === 'drb' && 'DRB 组织架构与授权宪章'}
+              {activeTab === 'appointments' && '委员会任免履职台账'}
+              {activeTab === 'audit' && '安全操作与审计流水'}
+            </span>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-            用户与架构师档案管理 · DRB 法定角色配置 (RBAC)
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-indigo-500" />
+            <span>系统管理与组织授权治理中心</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            企业通讯录SSO同步 · 架构技术职级(T序列) · DRB法定权能矩阵 · 委员会任免履职台账
+            企业通讯录SSO同步 · 架构技术职级(T序列) · DRB法定权能矩阵(RBAC) · 三级委员会宪章 · 安全审计流水
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={syncFromEnterpriseDirectory}
-            className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-indigo-500" />
-            <span>同步企业通讯录 (LDAP/飞书)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-950 rounded-lg hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>录入系统用户</span>
-          </button>
+          {activeTab === 'users' && (
+            <>
+              <button
+                type="button"
+                onClick={syncFromEnterpriseDirectory}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-xs flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-indigo-500" />
+                <span>同步企业通讯录 (LDAP/飞书)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-950 rounded-lg hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>录入系统用户</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* 3 Main View Tabs */}
-      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-xs font-semibold">
+      {/* 5 Main Admin Tabs */}
+      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-xs font-semibold overflow-x-auto">
         {[
-          { key: 'users', label: `员工与架构师档案库 (${users.length})`, icon: Users },
+          { key: 'users', label: `员工与架构师档案 (${users.length})`, icon: Users },
           { key: 'roles', label: `DRB 法定角色与权限矩阵 (${roles.length})`, icon: ShieldCheck },
-          { key: 'appointments', label: 'DRB 组织任免与任期履职台账', icon: Award },
+          { key: 'drb', label: `DRB 组织架构与授权宪章 (${drbOrgs.length})`, icon: Network },
+          { key: 'appointments', label: '委员会任免履职台账', icon: Award },
+          { key: 'audit', label: `安全操作与审计流水 (${auditLogs.length})`, icon: History },
         ].map((t) => {
           const isActive = activeTab === t.key;
           const Icon = t.icon;
@@ -175,8 +252,8 @@ export const UserManagementView: React.FC = () => {
             <button
               key={t.key}
               type="button"
-              onClick={() => setActiveTab(t.key as any)}
-              className={`px-4 py-2.5 transition-colors relative border-b-2 -mb-[1px] flex items-center gap-1.5 ${
+              onClick={() => handleTabChange(t.key as any)}
+              className={`px-4 py-2.5 transition-colors relative border-b-2 -mb-[1px] flex items-center gap-1.5 whitespace-nowrap ${
                 isActive
                   ? 'border-slate-900 dark:border-white text-slate-950 dark:text-white font-bold'
                   : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
@@ -583,6 +660,194 @@ export const UserManagementView: React.FC = () => {
                   </div>
                 </div>
               ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: DRB Org Hierarchy & Authorization Charters */}
+      {activeTab === 'drb' && <DRBOrgView />}
+
+      {/* Tab 5: Security Audit Log Trails */}
+      {activeTab === 'audit' && (
+        <div className="space-y-4">
+          {/* Audit Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 text-xs">
+                <span>累计安全审计日志</span>
+                <History className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100 mt-2">
+                {auditLogs.length}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">全链路防篡改区块链式流水</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 text-xs">
+                <span>高危基线/决策签署 (CRITICAL)</span>
+                <Flame className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-2">
+                {auditLogs.filter((a) => a.level === 'CRITICAL').length}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">红线规则固化与法定裁决签署</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 text-xs">
+                <span>权限与权能调整 (WARN)</span>
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-2">
+                {auditLogs.filter((a) => a.level === 'WARN').length}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">RBAC权限矩阵与账号状态变更</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 text-xs">
+                <span>同步与常规委派 (INFO)</span>
+                <Activity className="w-4 h-4 text-indigo-500" />
+              </div>
+              <div className="text-2xl font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-2">
+                {auditLogs.filter((a) => a.level === 'INFO').length}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">LDAP同步/在册角色正常委派</div>
+            </div>
+          </div>
+
+          {/* Audit Filter Bar */}
+          <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="搜索操作人、目标对象、事件类型或审计依据..."
+                  value={auditSearchQuery}
+                  onChange={(e) => setAuditSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 focus:bg-white text-xs"
+                />
+              </div>
+
+              {/* Level Filter Buttons */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                {[
+                  { key: 'ALL', label: '全部级别' },
+                  { key: 'CRITICAL', label: '关键高危' },
+                  { key: 'WARN', label: '警告变更' },
+                  { key: 'INFO', label: '常规信息' },
+                ].map((lvl) => (
+                  <button
+                    key={lvl.key}
+                    type="button"
+                    onClick={() => setSelectedAuditLevel(lvl.key as any)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      selectedAuditLevel === lvl.key
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {lvl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-slate-400 text-[11px] font-mono">
+              <Terminal className="w-3.5 h-3.5" />
+              <span>防篡改审计日志 · 保留期 5 年</span>
+            </div>
+          </div>
+
+          {/* Audit Log Table */}
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900 shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold">
+                    <th className="py-3 px-4 w-44">操作时间戳</th>
+                    <th className="py-3 px-4 w-28">事件级别</th>
+                    <th className="py-3 px-4 w-44">事件类别</th>
+                    <th className="py-3 px-4 w-36">操作人</th>
+                    <th className="py-3 px-4 w-52">变更实体/目标</th>
+                    <th className="py-3 px-4 min-w-[280px]">变更内容与治理依据</th>
+                    <th className="py-3 px-4 w-32 font-mono">客户端IP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {auditLogs
+                    .filter((log) => {
+                      const q = auditSearchQuery.toLowerCase();
+                      const matchesSearch =
+                        !q ||
+                        log.operatorName.toLowerCase().includes(q) ||
+                        log.operatorRole.toLowerCase().includes(q) ||
+                        log.targetEntity.toLowerCase().includes(q) ||
+                        log.detail.toLowerCase().includes(q) ||
+                        log.eventTypeName.toLowerCase().includes(q) ||
+                        log.clientIp.includes(q);
+                      const matchesLevel =
+                        selectedAuditLevel === 'ALL' || log.level === selectedAuditLevel;
+                      return matchesSearch && matchesLevel;
+                    })
+                    .map((log) => (
+                      <tr
+                        key={log.id}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                          {log.timestamp}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] inline-flex items-center gap-1 ${
+                              log.level === 'CRITICAL'
+                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 ring-1 ring-rose-500/30'
+                                : log.level === 'WARN'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            }`}
+                          >
+                            {log.level === 'CRITICAL' && <Flame className="w-2.5 h-2.5" />}
+                            {log.level === 'WARN' && <AlertTriangle className="w-2.5 h-2.5" />}
+                            {log.level === 'INFO' && <Activity className="w-2.5 h-2.5" />}
+                            <span>{log.level}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100">
+                            {log.eventTypeName}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {log.eventType}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                            {log.operatorName}
+                          </div>
+                          <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
+                            {log.operatorRole}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-xs text-slate-700 dark:text-slate-300 font-medium">
+                            {log.targetEntity}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
+                          {log.detail}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                          {log.clientIp}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
